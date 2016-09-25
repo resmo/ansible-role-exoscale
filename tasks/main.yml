@@ -1,0 +1,63 @@
+---
+- name: upload ssh key
+  local_action:
+    module: cs_sshkeypair
+    name: "{{ lookup('env', 'USER') }}@{{ lookup('pipe', 'hostname') }}"
+    public_key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+
+- name: ensure affinity group exist
+  local_action:
+    module: cs_affinitygroup
+    name: "{{ item.name }}"
+    api_region: "{{ cs_region }}"
+  with_items: "{{ cs_affinity_groups }}"
+  run_once: yes
+
+- name: ensure security groups exist
+  local_action:
+    module: cs_securitygroup
+    name: "{{ item.name }}"
+    api_region: "{{ cs_region }}"
+  with_items: "{{ cs_security_groups }}"
+  run_once: yes
+
+- name: add security group rules
+  local_action:
+    module: cs_securitygroup_rule
+    security_group: "{{ item.name }}"
+    start_port: "{{ item.start_port }}"
+    end_port: "{{ item.start_port | default(item.end_port) }}"
+    cidr: "{{ item.cidr | default(omit )}}"
+    api_region: "{{ cs_region }}"
+  with_items: "{{ cs_security_groups }}"
+  run_once: yes
+
+- name: create VM instance
+  local_action:
+    module: cs_instance
+    name: "{{ inventory_hostname_short }}"
+    group: "{{ cs_group | default(omit) }}"
+    template: "{{ cs_template }}"
+    service_offering: "{{ cs_offering }}"
+    security_groups: "{{ cs_instance_security_groups }}"
+    affinity_group: "{{ cs_instance_affinity_group | default(omit) }}"
+    ssh_key: "{{ lookup('env', 'USER') }}@{{ lookup('pipe', 'hostname') }}"
+    zone: "{{ cs_zone | default(omit) }}"
+    force: "{{ cs_force }}"
+    api_region: "{{ cs_region }}"
+    state: started
+  register: vm
+
+- name: assing IP to the inventory
+  set_fact: ansible_ssh_host={{ vm.default_ip }}
+
+- name: print VM infos
+  debug: msg='VM {{ inventory_hostname }} {{ vm.default_ip }}'
+
+- name: waiting for SSH to come up
+  local_action:
+    module: wait_for
+    port: "{{ ansible_ssh_port | default(22) }}"
+    host: "{{ vm.default_ip }}"
+  when: vm.default_ip is defined
+
