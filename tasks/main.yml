@@ -1,63 +1,60 @@
 ---
-- name: upload ssh key
-  local_action:
-    module: cs_sshkeypair
-    name: "{{ lookup('env', 'USER') }}@{{ lookup('pipe', 'hostname') }}"
+- name: ensure ssh keys exist
+  cs_sshkeypair:
+    name: "{{ item }}"
     public_key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+    api_region: "{{ cs_region }}"
+  loop: "{{ cs_ssh_keys }}"
+  run_once: yes
 
 - name: ensure affinity group exist
-  local_action:
-    module: cs_affinitygroup
+  cs_affinitygroup:
     name: "{{ item.name }}"
     api_region: "{{ cs_region }}"
-  with_items: "{{ cs_affinity_groups }}"
+  loop: "{{ cs_affinity_groups }}"
   run_once: yes
 
-- name: ensure security groups exist
-  local_action:
-    module: cs_securitygroup
-    name: "{{ item.name }}"
-    api_region: "{{ cs_region }}"
-  with_items: "{{ cs_security_groups }}"
-  run_once: yes
+- include_tasks: security_group.yml
+  loop: "{{ cs_security_groups }}"
+  loop_control:
+    loop_var: security_group
 
-- name: add security group rules
-  local_action:
-    module: cs_securitygroup_rule
-    security_group: "{{ item.name }}"
-    start_port: "{{ item.start_port }}"
-    end_port: "{{ item.start_port | default(item.end_port) }}"
-    cidr: "{{ item.cidr | default(omit )}}"
-    api_region: "{{ cs_region }}"
-  with_items: "{{ cs_security_groups }}"
-  run_once: yes
-
-- name: create VM instance
-  local_action:
-    module: cs_instance
-    name: "{{ inventory_hostname_short }}"
-    group: "{{ cs_group | default(omit) }}"
+- name: ensure VM instance started
+  cs_instance:
+    display_name: "{{ inventory_hostname }}"
+    group: "{{ cs_group }}"
     template: "{{ cs_template }}"
     service_offering: "{{ cs_offering }}"
     security_groups: "{{ cs_instance_security_groups }}"
-    affinity_group: "{{ cs_instance_affinity_group | default(omit) }}"
-    ssh_key: "{{ lookup('env', 'USER') }}@{{ lookup('pipe', 'hostname') }}"
-    zone: "{{ cs_zone | default(omit) }}"
+    affinity_group: "{{ cs_instance_affinity_group }}"
+    ssh_key: "{{ cs_instance_ssh_key }}"
+    zone: "{{ cs_zone }}"
     force: "{{ cs_force }}"
     api_region: "{{ cs_region }}"
     state: started
+    user_data: |
+      #cloud-config
+      manage_etc_hosts: true
+      fqdn: {{ inventory_hostname }}
   register: vm
 
-- name: assing IP to the inventory
-  set_fact: ansible_ssh_host={{ vm.default_ip }}
+- name: add private network
+  cs_instance_nic:
+    network: "{{ cs_private_network }}"
+    vm: "{{ inventory_hostname }}"
+    zone: "{{ cs_zone }}"
+    api_region: "{{ cs_region }}"
 
-- name: print VM infos
-  debug: msg='VM {{ inventory_hostname }} {{ vm.default_ip }}'
+- name: assing IP to the inventory
+  set_fact:
+    ansible_host: "{{ vm.default_ip }}"
+
+- name: print VM instance infos
+  debug:
+    msg: "VM {{ inventory_hostname }}: {{ vm.default_ip }}"
 
 - name: waiting for SSH to come up
-  local_action:
-    module: wait_for
-    port: "{{ ansible_ssh_port | default(22) }}"
+  wait_for:
+    port: "{{ ansible_port | default(22) }}"
     host: "{{ vm.default_ip }}"
   when: vm.default_ip is defined
-

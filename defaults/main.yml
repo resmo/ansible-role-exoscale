@@ -1,13 +1,21 @@
 ---
 cs_zone: null
-cs_region: exoscale
+cs_region: cloudstack
 cs_group: null
 
 cs_force: false
 cs_offering: Tiny
-cs_template: Linux CentOS 7.1 64-bit 100G Disk (2015-03-31-2230b6)
+cs_template: Linux Debian 9 64-bit 10G Disk (2018-01-18-25e9ec)
 
 cs_affinity_groups: []
 cs_security_groups: []
+
+cs_instance_name: "{{ inventory_hostname_short }}"
 cs_instance_affinity_group: ""
 cs_instance_security_groups: [ default ]
+cs_instance_ssh_key: "{{ lookup('env', 'USER') }}@{{ lookup('pipe', 'hostname') }}"
+
+cs_ssh_keys:
+  - "{{ cs_instance_ssh_key }}"
+
+cs_private_network: privNetForBasicZone

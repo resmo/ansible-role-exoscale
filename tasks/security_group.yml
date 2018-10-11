@@ -1,0 +1,16 @@
+---
+- name: ensure security groups exist
+  cs_securitygroup:
+    name: "{{ security_group.name }}"
+    api_region: "{{ cs_region }}"
+  run_once: yes
+
+- name: add security group rules
+  cs_securitygroup_rule:
+    security_group: "{{ security_group.name }}"
+    start_port: "{{ item.start_port }}"
+    end_port: "{{ item.end_port | default(item.start_port) }}"
+    cidr: "{{ item.cidr | default(omit )}}"
+    api_region: "{{ cs_region }}"
+  loop: "{{ security_group.rules }}"
+  run_once: yes
