@@ -21,7 +21,7 @@
 
 - name: ensure VM instance started
   cs_instance:
-    display_name: "{{ inventory_hostname }}"
+    display_name: "{{ cs_instance_name }}"
     group: "{{ cs_group }}"
     template: "{{ cs_template }}"
     service_offering: "{{ cs_offering }}"
@@ -35,13 +35,13 @@
     user_data: |
       #cloud-config
       manage_etc_hosts: true
-      fqdn: {{ inventory_hostname }}
+      fqdn: {{ cs_instance_name }}
   register: vm
 
 - name: add private network
   cs_instance_nic:
     network: "{{ cs_private_network }}"
-    vm: "{{ inventory_hostname }}"
+    vm: "{{ cs_instance_name }}"
     zone: "{{ cs_zone }}"
     api_region: "{{ cs_region }}"
 
@@ -51,7 +51,20 @@
 
 - name: print VM instance infos
   debug:
-    msg: "VM {{ inventory_hostname }}: {{ vm.default_ip }}"
+    msg: "VM {{ cs_instance_name }}: {{ vm.default_ip }}"
+
+- name: ensure domains exist
+  exo_dns_domain:
+    name: "{{ cs_dns_domain }}"
+  run_once: yes
+  when: cs_dns_domain|bool
+
+- name: ensure host record exists
+  exo_dns_record:
+    name: "{{ cs_instance_name }}"
+    domain: "{{ cs_dns_domain }}"
+    content: "{{ vm.default_ip }}"
+  when: cs_dns_domain|bool and vm.default_ip is defined
 
 - name: waiting for SSH to come up
   wait_for:

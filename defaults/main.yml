@@ -19,3 +19,5 @@ cs_ssh_keys:
   - "{{ cs_instance_ssh_key }}"
 
 cs_private_network: privNetForBasicZone
+
+cs_dns_domain: null
