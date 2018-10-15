@@ -64,6 +64,7 @@
     name: "{{ cs_instance_name }}"
     domain: "{{ cs_dns_domain }}"
     content: "{{ vm.default_ip }}"
+    ttl: 300
   when: cs_dns_domain|bool and vm.default_ip is defined
 
 - name: waiting for SSH to come up
