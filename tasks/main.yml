@@ -32,10 +32,7 @@
     force: "{{ cs_force }}"
     api_region: "{{ cs_region }}"
     state: started
-    user_data: |
-      #cloud-config
-      manage_etc_hosts: true
-      fqdn: {{ cs_instance_name }}
+    user_data: "{{ cs_user_data }}"
   register: vm
 
 - name: add private network

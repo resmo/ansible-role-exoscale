@@ -21,3 +21,8 @@ cs_ssh_keys:
 cs_private_network: privNetForBasicZone
 
 cs_dns_domain: null
+
+cs_user_data: |
+  #cloud-config
+  manage_etc_hosts: true
+  fqdn: {{ cs_instance_name }}
